@@ -14,6 +14,14 @@ from langchain_core.language_models import BaseChatModel
 from client.concrete.persona_multiturn_gen import PersonaMultiGenerator
 
 from util.file_tools import JsonHandler, JsonlHandler
+from util.path_tools import OutputPathCreator
+
+'''
+参考にさせていただきました
+https://github.com/tencent-ailab/persona-hub
+https://github.com/matsuolab/nedo_project_code/tree/team_hatakeyama_phase2/team_hatakeyama_phase2/ota/topic-hub
+
+'''
 
 
 @dataclass
@@ -99,18 +107,14 @@ class PersonaHubManager(object):
             output_dir: str,
     ) -> None:
 
-        # output directory check
-        os.makedirs(output_dir, exist_ok=True)
-        base_name = os.path.basename(seed_set_file)
-        output_file = output_dir + f"/gen_{base_name}"
+        # This tool creates an output file name based on an input file name.
+        op_gen = OutputPathCreator(output_dir=output_dir, out_suffix='.jsonl', add_stem='-gen')
+        output_file = op_gen(seed_set_file)
 
         # file handle tools
         jlh = JsonlHandler()  # tool for *.jesonl files.
 
         seed_set = jlh.read(seed_set_file)
-
-        # def process_batch(batch):
-        #     print(batch)
 
         def batch_processor(data, batch_size):
             for i in range(0, len(data), batch_size):
@@ -120,13 +124,12 @@ class PersonaHubManager(object):
         for processed in tqdm(batch_processor(seed_set, self._batch_size)):
 
             gen_objects.extend(processed)
-            # print(gen_objects)
             jlh.write(gen_objects, output_file)
 
 
 if __name__ == "__main__":
     """
-    python -m persona_hub.manager
+    python -m persona_hub.gen_manager
     """
 
     from logging import DEBUG, INFO, WARN, ERROR, basicConfig
@@ -153,7 +156,7 @@ if __name__ == "__main__":
         generate_batch_size = 3,
     )
 
-    seed_set_file = './data/math_seeds_0k.jsonl'
-    output_dir = './data/output'
+    seed_set_file = './data/input/persona_hub/math_seeds_0k.jsonl'
+    output_dir = './data/output/persona_hub'
 
     em(seed_set_file, output_dir)

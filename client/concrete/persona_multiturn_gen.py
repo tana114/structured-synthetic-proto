@@ -6,12 +6,6 @@ from langchain_core.language_models import BaseChatModel
 
 from client.chain_base import ChainDirector, ConcreteChainBase
 
-'''
-I have referred to the following
-https://github.com/matsuolab/nedo_project_code/tree/team_hatakeyama_phase2/team_hatakeyama_phase2/ota/topic-hub
-
-'''
-
 BASE_SYSTEM_PROMPT_FORMAT = (
     "You are a helpful instruction writer.\n"
     "Create a #task# problem related to the #topic# and #persona#, and generate responses to the created problems.\n\n"
@@ -46,8 +40,6 @@ BASE_SYSTEM_PROMPT_FORMAT = (
     " #second_additional_problem# and #second_response_to_problem#.\n\n"
 )
 
-
-
 HUMAN_PROMPT_FORMAT = (
     "#seed_list#: \n{persona_info}\n"
 )
@@ -69,6 +61,25 @@ class TaskList(BaseModel):
 
 
 class PersonaMultiGenerator(ConcreteChainBase):
+    """
+    I have referred to the following
+    https://github.com/matsuolab/nedo_project_code/tree/team_hatakeyama_phase2/team_hatakeyama_phase2/ota/topic-hub
+
+    This module can generate a multi-turn conversation given a seed of 'persona', 'task', and 'topic'.
+
+    ＜例＞
+    - シード
+        'persona': "医者",
+        'task': "math",
+        'topic': "多項式の乗法",
+
+    - 生成されるQアンドA
+        医者のPersonaは患者さんの血液検査結果の解析を行うために多項式の乗法を使用しています。具体的には、ある特定の抗原が存在するかどうかを判定するために多項式 f(x) = x^3 + 4x + 1 を使います。もし、この多項式と g(x) = x^2 - x + 5 の積を求めるとどのような形になりますか？
+        まず、f(x) と g(x) の各項をそれぞれ掛け合わせていきます。最初にx^3とx^2 を掛けると x^5 となります。
+        この結果から、最も大きい次数の項は何になりますか？
+        最も大きい次数の項は f(x) の最高次の項である x^3 と g(x) の最高次の項である x^2 を掛けた x^5 となります。
+    """
+
     def __init__(
             self,
             chat_model: BaseChatModel,
@@ -124,7 +135,8 @@ class PersonaMultiGenerator(ConcreteChainBase):
             res = cast(TaskList, self._inst_num_check(input, **kwargs))
 
         else:
-            res = cast(TaskList, self._chain_director.invoke(input, **kwargs,))
+            chain_d = cast(ChainDirector, self._chain_director)
+            res = cast(TaskList, chain_d.invoke(input, **kwargs, ))
 
         # TaskList型を辞書型にdumpしたものを返す#
         task_list = [d.model_dump() for d in res.tasks]
@@ -136,7 +148,8 @@ class PersonaMultiGenerator(ConcreteChainBase):
             input: Dict[Literal["persona_info"], str],
             **kwargs
     ):
-        res = cast(TaskList, self._chain_director.invoke(input, **kwargs))
+        chain_d = cast(ChainDirector, self._chain_director)
+        res = cast(TaskList, chain_d.invoke(input, **kwargs))
         if not res:
             return cast(TaskList, self._inst_num_check(input, **kwargs))
 
@@ -163,7 +176,6 @@ if __name__ == "__main__":
         # temperature=0,
         temperature=0.6,
     )
-
 
     per_list = [
         {
@@ -214,7 +226,7 @@ if __name__ == "__main__":
         print(r['second_additional_problem'])
         print(r['second_response_to_problem'])
 
-    '''
+'''
 ------ 1 ------
 カメラマンのPersonaは、写真撮影時に必要な露出時間（シャッタースピード）を計算するために二進法を使用しています。彼が持っている2つのシャッタースピードは、0.5秒と1秒です。もし1秒と0.5秒を足したものを表す二進数で表現すると何になりますか？
 まず、1秒の二進数表現は 1 となります。次に、0.5秒の二進数表現は 0.1 です。これらを足してみると 1.1 となります。
@@ -243,4 +255,4 @@ Pが真であるからといって必ずしもQが真とは限らないため、
 もしタンパク質の存在をチェックするための判定式が110101（これもまた2進数で表現された値です）であるとしたら、この数値は何ですか？
 与えられた二進数は110101であり、これを十進数に変換すると1 + 4 + 32 = 37となります。
 
-    '''
+'''

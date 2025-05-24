@@ -11,6 +11,7 @@ from util.file_tools import JsonHandler, JsonlHandler
 {"persona": "SF作家", "task": "math", "topic": "確率"}
 
 参考にさせていただきました
+https://github.com/tencent-ailab/persona-hub
 https://github.com/matsuolab/nedo_project_code/tree/team_hatakeyama_phase2/team_hatakeyama_phase2/ota/topic-hub
 
 '''
@@ -145,10 +146,10 @@ if __name__ == "__main__":
     fix_seeds(random_seed)
 
     sc = PersonaHubSeedCollector(
-        seed_dir='./data/seed',
-        output_dir='./data',
-        # batch_size=100,
-        batch_size=10,
+        seed_dir='./data/input/persona_hub/seed',
+        output_dir='./data/input/persona_hub',
+        batch_size=100,
+        # batch_size=10,
         remove_duplicate=True,
     )
 

@@ -142,9 +142,9 @@ class ConcreteChainBase(metaclass=ABCMeta):
     ):
         exception_wait_sec = 5
         self._chain_director = self._create_chain_director(director_config)
-        # if self._chain_director is None:
-        #     logger.error("Chain director is not initialized.")
-        #     raise ValueError("Chain director is not initialized.")
+        if self._chain_director is None:
+            logger.error("Chain director is not initialized.")
+            raise ValueError("Chain director is not initialized.")
         try:
 
             return self._invoke_handling(input, **kwargs)
