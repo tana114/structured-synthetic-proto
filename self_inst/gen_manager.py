@@ -19,18 +19,12 @@ from client.concrete.self_inst_gen import SelfInstructGenerator
 from util.file_tools import JsonHandler, JsonlHandler
 from util.path_tools import OutputPathCreator
 
-
 from logging import getLogger, NullHandler
 
 logger = getLogger(__name__)
 logger.addHandler(NullHandler())
 
-# -----------------------------------------------------------
-
-# tokenizer の dead lock warning を回避
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-# RougeScorerの日本語化対応
 hf_tokenizer = AutoTokenizer.from_pretrained("tokyotech-llm/Swallow-MS-7b-v0.1")
 
 TASK_LIST_LENGTH = 10
@@ -74,8 +68,7 @@ def post_process_response(
             # print('may be error:', no, idx)
             continue
 
-        # if len(inst) <= 6 or len(inst) > 300:
-        if len(inst) <= 10 :
+        if len(inst) <= 10:
             logger.error(f"filter out too short instructions. instruction lengths: {len(inst)}")
             continue
 
@@ -112,20 +105,19 @@ class GenerateManager(object):
             cfg: GenerateConfig
     ):
         input_file = cfg.input_file
-        output_dir = cfg.output_dir 
+        output_dir = cfg.output_dir
         num_inst_to_gen = cfg.num_instructions_to_generate
         num_tasks_to_gen = cfg.num_tasks_to_generate
         num_few_shot = cfg.num_few_shot
         num_cpu = cfg.num_cpu
+
         # インプットファイル名に基づいで、OUTPUT用のファイル名を作成するツール
         op_gen = OutputPathCreator(output_dir=output_dir, out_suffix='.json', add_stem='-regen')
         output_file = op_gen(input_file)
-        
 
         inst_gen = SelfInstructGenerator(self._model, num_tasks_to_gen, use_gen_num_check=True)
         jlh = JsonlHandler()
         jh = JsonHandler()
-
 
         msg = """
         'input_file'にはAlpaca形式のデータが格納された'*.jsonl'を指定してください。
@@ -150,7 +142,6 @@ class GenerateManager(object):
             machine_instruction_data = jh.read(output_file)
             logger.info(f"Loaded {len(machine_instruction_data)} machine-generated instructions")
 
-        # similarities = {}
         scorer = rouge_scorer.RougeScorer(["rougeL"], tokenizer=self._tokenizer, use_stemmer=False)
 
         # now let's generate new instructions!
@@ -158,15 +149,12 @@ class GenerateManager(object):
         if machine_instruction_data:
             progress_bar.update(len(machine_instruction_data))
 
-            # first we tokenize all the seed instructions and generated machine instructions
         all_instructions = [d["instruction"] for d in seed_instruction_data] + [
             d["instruction"] for d in machine_instruction_data
         ]
         all_instruction_tokens = [
             scorer._tokenizer.tokenize(inst) for inst in all_instructions
         ]
-
-        # client = SelfInstruct(llm, TASK_LIST_LENGTH)
 
         while len(machine_instruction_data) < num_inst_to_gen:
             request_idx += 1
@@ -176,9 +164,6 @@ class GenerateManager(object):
                 seed_instruction_data, num_few_shot
             )
 
-            # if is_single_prompt := isinstance(prompt_seeds, (str, dict)):
-            #     prompt_seeds = [prompt_seeds]
-
             few_shot = inst_gen.encode_few_shot_prompt(prompt_seeds)
             next_no = len(prompt_seeds) + 1
             inst = {
@@ -186,9 +171,6 @@ class GenerateManager(object):
                 "next_no": next_no,
             }
             task_list = inst_gen.invoke(inst)
-
-            # print(task_list)
-            # assert False, ''
 
             instruction_data = post_process_response(num_few_shot, task_list)
 
@@ -208,26 +190,6 @@ class GenerateManager(object):
                         all_instruction_tokens,  # seed_tasks_japanese.jsonlのinstructionをtoken化してまとめたリスト(175個の要素)
                     )
 
-                ''' 
-                ROUGE スコア：機械で生成した文章（要約候補）がお手本の文章（参照要約）にどの程度合致するか？
-
-                ROUGEスコア=分子/分母
-                とすると
-                分母は、「参照要約に含まれる全ての N-Gram」の出現回数の合計
-                分子は、「参照要約に含まれる全ての N-Gram」について、「要約候補での出現回数」と「参照要約での出現回数」の最小値の合計
-
-                つまり、参照要約に含まれる N-Gram が要約候補でどの程度拾われたかという Recall ですね。
-                なのですが、実際のところは上記の要領で Precision も計算して F1 スコアを算出するというのが一般的な使い方のようです。 
-                今回紹介する BRIO でも F1 でスコアが記載されていますし、ROUGE スコアを算出するライブラリも多くが F1 スコアを返す（あるいはデフォルトになっている） ようです。
-
-                適合率(Precision)、再現率(Recall)、F値(fmeasure)
-                rogue_scores -> 
-                [
-                    Score(precision=0.15151515151515152, recall=0.25, fmeasure=0.18867924528301888), 
-                    ...
-                    Score(precision=0.17647058823529413, recall=0.3, fmeasure=0.22222222222222224)
-                ]
-                '''
                 rouge_scores = [score.fmeasure for score in rouge_scores]
 
                 # assert False, ''
@@ -238,7 +200,6 @@ class GenerateManager(object):
                 }
                 if max(rouge_scores) > 0.7:
                     logger.error(f"Filter: 最大rouge_scoresが0.7を超えています。")
-                    # print(f"Filter: 最大rouge_scoresが0.7を超えています。")
                     continue
                 else:
                     keep += 1
@@ -249,17 +210,7 @@ class GenerateManager(object):
                 all_instruction_tokens.append(new_instruction_tokens)
                 progress_bar.update(1)
 
-                # print(len(machine_instruction_data))
-                # print(machine_instruction_data)
-                # print(len(all_instructions))
-                # print(all_instructions)
-                # print(all_instruction_tokens)
-
             logger.info(f"Generated {total} instructions, kept {keep} instructions")
-            # print(f"Generated {total} instructions, kept {keep} instructions")
-            # print(len(machine_instruction_data))
-            # print(machine_instruction_data)
-
             jh.write(machine_instruction_data, output_file)
 
 
@@ -273,13 +224,13 @@ if __name__ == "__main__":
         random.seed(seed)
         np.random.seed(seed)
 
+
     SEED = 46
     fix_seed(SEED)
 
-
     from logging import DEBUG, INFO, WARN, ERROR, basicConfig
-    basicConfig(level=WARN)
 
+    basicConfig(level=WARN)
 
     # from model.groq_llm import GroqChatBase
     # llm_main = GroqChatBase(
@@ -292,8 +243,7 @@ if __name__ == "__main__":
     from langchain_experimental.llms.ollama_functions import OllamaFunctions
 
     # 構造化出力用のllm
-    llm = OllamaFunctions(model="qwen3:4b", format="json", temperature=0.5) 
-
+    llm = OllamaFunctions(model="qwen3:4b", format="json", temperature=0.5)
 
     test_cfg = dict(
         input_file="./data/input/self_inst/seed_tasks_jp.jsonl",
@@ -304,8 +254,7 @@ if __name__ == "__main__":
         num_few_shot=4,  # few-shot で参考として与えるシードの個数
         num_cpu=8,
     )
-    
-    
+
     em = GenerateManager(
         main_llm=llm,
     )
